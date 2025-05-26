@@ -5,42 +5,47 @@
   <hr width="50%"/>
 </div>
 
-一个高性能、自动化的支付宝账单解析器，支持**压缩包密码自动破解**与**账单数据智能提取**，适用于账单分析、账单自动化入账、个人理财工具开发等场景。
+A high-performance, automated Alipay bill parser that supports automatic password cracking of compressed files and intelligent extraction of bill data. Ideal for scenarios such as bill analysis, automated bookkeeping, and personal finance tool development.
 
 ---
 
-## ✨ 特点
+## ✨ Features
 
-* 🔐 **自动破解压缩包密码**：使用原生 C 语言实现的多线程暴力破解工具，响应速度极快，资源占用极低。
-* 📦 **无需手动解压**：支持带密码压缩包，自动解压并读取账单数据，无需人工干预。
-* 📄 **智能数据提取**：解析支付宝账单 CSV 文件，快速提取账号信息、姓名与明细数据。
-* 🧩 **高度可定制**：支持通过回调函数灵活控制解析流程，比如只获取密码、不生成 HTML。
-* 📬 **适配邮件监听脚本**：结合邮件监听可实现完全自动化的账单收集与解析。
+- 🔐 **Automatic Password Cracking for Compressed Files**: Utilizes a native C-based multithreaded brute-force tool for extremely fast response and minimal resource usage.
+
+- 📦 **No Manual Extraction Required**: Supports password-protected archives, automatically decompresses and reads bill data without manual intervention.
+
+- 📄 **Intelligent Data Extraction**: Parses Alipay bill CSV files to quickly extract account information, user names, and transaction details.
+
+- 🧩 **Highly Customizable**: Offers flexible control over the parsing process via callback functions—for example, to retrieve only the password without generating HTML.
+
+- 📬 **Compatible with Email Monitoring Scripts**: Can be integrated with email listeners to enable fully automated bill collection and parsing.
 
 ---
 
-## 🛠 系统依赖
+## 🛠 System Requirements
 
-本库依赖 C 语言库 [libzip](https://libzip.org/)，请先安装依赖：
+This library depends on the C library [libzip](https://libzip.org/). Please install the dependency first:
 
-* Ubuntu / Debian：
+- Ubuntu / Debian：
 
   ```bash
   sudo apt install libzip-dev
   ```
 
-* macOS（使用 Homebrew）：
+- macOS (using Homebrew)：
 
   ```bash
   brew install libzip
   ```
-* Windows 用户可通过 WSL 使用，或使用预编译的 `zip_bruteforce.exe`​。
+
+- Windows users can use this via WSL, or use the precompiled `zip_bruteforce.exe`.
 
 ---
 
-## 📦 安装方式
+## 📦 Installation
 
-使用 Composer 安装本库：
+Install this library via Composer:
 
 ```bash
 composer require hejunjie/alipay-bill-parser
@@ -48,7 +53,7 @@ composer require hejunjie/alipay-bill-parser
 
 ---
 
-## 🚀 使用方式
+## 🚀 Usage
 
 ```php
 use Hejunjie\AlipayBillParser\AlipayBillParser;
@@ -58,48 +63,51 @@ $zipFile = '/path/to/支付宝交易明细(20240501-20250430).zip';
 
 $options = new ParseOptions($zipFile);
 $options->onPasswordFound = function ($password) {
-    echo "密码是：$password\n";
-    return true; // 返回 false 会终止后续解析流程
+    echo "password:$password\n";
+    return true; // Returning false will terminate the subsequent parsing process.
 };
 $options->onDataParsed = function ($data) {
-    echo "姓名 " . $data['real_name'] . PHP_EOL;
-    echo "账号 " . $data['account'] . PHP_EOL;
-    echo "共解析出 " . count($data['data']) . " 行记录\n";
-    return true; // 返回 false 会跳过 HTML 生成步骤（开发中）
+    echo "name " . $data['real_name'] . PHP_EOL;
+    echo "account " . $data['account'] . PHP_EOL;
+    echo "A total of " . count($data['data']) . " records have been parsed.\n";
+    return true; // Returning false will skip the HTML generation step (under development).
 };
 
-// tips: 后期考虑支持直接生成账单报告html文件
+// tips: Future versions may support directly generating a bill report as an HTML file.
 
 $parser = new AlipayBillParser();
 $parser->parse($options);
 ```
 
-你也可以只获取密码或只获取账单数据，只需根据需要实现相应回调函数。
+You can also choose to retrieve only the password or only the bill data—simply implement the corresponding callback functions as needed.
 
 ---
 
-## 🧠 用途 & 初衷
+## 🧠 Purpose & Motivation
 
-平时我有做账单整理和个人收支记录的习惯，但微信、支付宝导出的账单格式不统一，且常常是加密压缩包，每次导出、解压、整理都极其繁琐。于是我开发了这个工具：
+I usually keep track of my bills and personal income and expenses, but the bill formats exported from WeChat and Alipay are inconsistent and often come as encrypted compressed files. Exporting, extracting, and organizing these bills every time is extremely tedious. So, I developed this tool:
 
-* 可作为**个人账单处理的中间件**；
-* 省去了下载、解压的过程，自动破解压缩包数据提取信息
-* 可结合**邮件监听脚本**，实现自动化流水收集；
-* 只需将所有账单邮件自动转发至指定邮箱，就能**一键解析所有账单数据**，解放双手。
+- Acts as middleware for personal bill processing;
+
+- Eliminates the need for manual downloading and extraction by automatically cracking compressed files and extracting data;
+
+- Can be combined with email monitoring scripts to enable automated transaction collection;
+
+- Simply forward all bill emails to a designated mailbox, and you can parse all bill data with one click—freeing your hands completely.
 
 ---
 
-## 🧾 输出结构说明
+## 🧾 Output Structure Description
 
-​`onDataParsed`​ 回调中传入的 `$data`​ 是如下结构的数组：
+The `$data` passed into the `onDataParsed` callback is an array with the following structure:
 
 ```php
 [
-  'real_name' => '张三', // 姓名
-  'account' => '18273727771', // 注册支付宝的账号，通常是手机号，不排除是邮箱
+  'real_name' => '张三', // name
+  'account' => '18273727771', // The registered Alipay account is usually a phone number, but it may also be an email address.
   'data' => [
-      // 每一行账单记录	
-      ['交易时间', '交易分类', '交易对方', '对方账号', '商品说明', '收/支', '金额', '收/付款方式', '交易状态', '交易订单号', '商家订单号', '备注'],
+      // Each line of bill record
+      ['Transaction Time', 'Transaction Category', 'Counterparty', 'Counterparty Account', 'Product Description', 'Income/Expense', 'Amount', 'Payment Method', 'Transaction Status', 'Transaction Order Number', 'Merchant Order Number', 'Remarks'],
       ...
   ]
 ]
@@ -107,6 +115,6 @@ $parser->parse($options);
 
 ---
 
-## 📮 联系方式
+## 📮 Contact
 
-如有问题、建议或合作意向，欢迎通过 GitHub Issue 与我联系。
+If you have any questions, suggestions, or cooperation interests, feel free to reach out to me via GitHub Issues.
