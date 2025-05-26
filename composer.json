@@ -1,0 +1,20 @@
+{
+  "name": "hejunjie/alipay-bill-parser",
+  "description": "一个高性能、自动化的支付宝账单解析器，支持压缩包密码自动破解与账单数据智能提取，适用于账单分析、账单自动化入账、个人理财工具开发等场景。",
+  "license": "MIT",
+  "type": "library",
+  "autoload": {
+    "psr-4": {
+      "Hejunjie\\AlipayBillParser\\": "src/"
+    }
+  },
+  "authors": [
+    {
+      "name": "何俊杰",
+      "email": "junjie.he.925@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=8.1"
+  }
+}
