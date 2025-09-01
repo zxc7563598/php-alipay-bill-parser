@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <unistd.h>
 #include <zip.h>
 
 #define PASSWORD_LENGTH 6
-#define THREAD_COUNT 4
 
 typedef struct {
     const char* zip_path;
@@ -29,19 +29,35 @@ int try_password(zip_t* za, const char* password) {
         if (zip_stat_index(za, i, 0, &st) != 0 || st.size == 0) continue;
         zip_file_t* zf = zip_fopen_index(za, i, 0);
         if (!zf) continue;
-        char* buffer = malloc(st.size);
-        if (!buffer) {
-            zip_fclose(zf);
-            continue;
+        char buffer[16 * 1024];
+        zip_int64_t read_bytes = zip_fread(zf, buffer, sizeof(buffer));
+        if (read_bytes > 0) {
+            // 前16KB读取成功，再尝试完整读取确认
+            zip_int64_t total_read = read_bytes;
+            char* full_buffer = malloc(st.size);
+            if (!full_buffer) {
+                zip_fclose(zf);
+                continue;
+            }
+            memcpy(full_buffer, buffer, read_bytes);
+            while (total_read < st.size) {
+                zip_int64_t chunk = zip_fread(zf, full_buffer + total_read, st.size - total_read);
+                if (chunk <= 0) {
+                    success = 0;
+                    break;
+                }
+                total_read += chunk;
+            }
+            free(full_buffer);
+            if (total_read == st.size) {
+                success = 1;
+                zip_fclose(zf);
+                break;
+            }
         }
-        zip_int64_t total_read = zip_fread(zf, buffer, st.size);
-        free(buffer);
         zip_fclose(zf);
-        if (total_read == st.size) {
-            success = 1;
-            break;
-        }
     }
+
     return success;
 }
 
@@ -56,12 +72,8 @@ void* worker(void* arg) {
         return NULL;
     }
     for (int i = data->start; i <= data->end; i++) {
-        pthread_mutex_lock(&lock);
-        if (found) {
-            pthread_mutex_unlock(&lock);
-            break;
-        }
-        pthread_mutex_unlock(&lock);
+        if (found) break; // 发现密码就立即退出
+
         snprintf(password, PASSWORD_LENGTH + 1, "%06d", i);
         if (try_password(za, password)) {
             pthread_mutex_lock(&lock);
@@ -83,18 +95,21 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     const char* zip_path = argv[1];
-    pthread_t threads[THREAD_COUNT];
-    ThreadData thread_data[THREAD_COUNT];
+    int cpu_count = sysconf(_SC_NPROCESSORS_ONLN);
+    if (cpu_count <= 0) cpu_count = 4;
+    int thread_count = cpu_count;
+    pthread_t threads[thread_count];
+    ThreadData thread_data[thread_count];
     pthread_mutex_init(&lock, NULL);
-    int range_per_thread = 1000000 / THREAD_COUNT;
-    for (int i = 0; i < THREAD_COUNT; i++) {
+    int range_per_thread = 1000000 / thread_count;
+    for (int i = 0; i < thread_count; i++) {
         thread_data[i].zip_path = zip_path;
         thread_data[i].start = i * range_per_thread;
-        thread_data[i].end = (i == THREAD_COUNT - 1) ? 999999 : (thread_data[i].start + range_per_thread - 1);
+        thread_data[i].end = (i == thread_count - 1) ? 999999 : (thread_data[i].start + range_per_thread - 1);
         thread_data[i].thread_id = i + 1;
         pthread_create(&threads[i], NULL, worker, &thread_data[i]);
     }
-    for (int i = 0; i < THREAD_COUNT; i++) {
+    for (int i = 0; i < thread_count; i++) {
         pthread_join(threads[i], NULL);
     }
     if (found) {
